@@ -9,6 +9,7 @@ from .media import render, validate_upload
 from .models import RenderSettings, Scene, dimensions, four_k_enabled, local_profile, validate_timeline
 from .subtitles import make_cues, parse_srt, to_srt
 from .tts import VOICES, synthesize
+from .ai_video.ui import panel as ai_video_panel
 
 MOTION_LABELS = {'Đứng yên': 'static', 'Zoom chậm': 'zoom', 'Pan ngang': 'pan', 'Ken Burns': 'ken_burns'}
 DEFAULT_TEXT = 'Bắt đầu ngày mới với những thói quen nhỏ. Mang theo bình nước cá nhân để giảm chai nhựa. Chọn đi bộ cho những quãng đường gần. Tận dụng ánh sáng tự nhiên và tiết kiệm điện. Phân loại rác và tái sử dụng đồ dùng. Mỗi hành động hôm nay góp phần tạo nên một tương lai xanh hơn.'
@@ -35,7 +36,7 @@ def main():
     st.caption('🎬 AI AUTO VIDEO STUDIO PRO · GIAI ĐOẠN A')
     st.title('Dựng video theo cách của bạn')
     st.write('Chuyển động, giọng đọc, nhạc nền và phụ đề — bộ dựng miễn phí, không cần API key.')
-    st.info('Bộ dựng Pro A đã có chức năng thực. Dashboard 10 mục, mẫu kịch bản, thư viện ZIP và AI tạo ảnh/video thuộc các giai đoạn tiếp theo, chưa hỗ trợ trong bản này. Dữ liệu hiện chỉ ở phiên làm việc; hãy tải MP4/SRT trước khi đóng phiên.')
+    st.info('Bộ dựng Pro A đã có chức năng thực. Dashboard 10 mục, mẫu kịch bản và thư viện ZIP chưa hỗ trợ. Sinh video chuyển động thật cần GPU worker ngoài; cấu hình và quản lý tác vụ ở mục AI Video Generator. Dữ liệu hiện chỉ ở phiên làm việc; hãy tải MP4/SRT trước khi đóng phiên.')
     with st.sidebar:
         st.header('Cấu hình Pro')
         ratio = st.radio('Tỷ lệ Pro', ['9:16', '16:9', '1:1'], horizontal=True, key='pro_ratio')
@@ -43,6 +44,7 @@ def main():
         resolution = st.selectbox('Độ phân giải', choices, key='pro_resolution')
         transition = st.slider('Chuyển cảnh qua nền đen (giây)', 0.0, 1.0, .25, .05, key='pro_transition')
         burn = st.checkbox('Gắn phụ đề trực tiếp vào video', value=True, key='pro_burn')
+        clip_only = st.checkbox('Chế độ phim: tất cả cảnh phải là clip MP4', value=False, key='pro_clip_only')
         st.caption('24 fps · H.264/AAC. 1080p tốn nhiều tài nguyên hơn 720p. Chuyển cảnh fade qua nền đen giữ nguyên tổng thời lượng.')
         st.caption('Profile: máy cá nhân/server' if local_profile() else 'Profile: Cloud · tối đa 9 cảnh / 90 giây')
         if not four_k_enabled():
@@ -63,16 +65,20 @@ def main():
             st.session_state.pop('pro_result', None)
             st.session_state.pop('pro_tts', None)
             st.session_state.pop('pro_srt_source', None)
+            st.session_state.pop('ai_timeline_clips', None)
         except StudioError as exc:
             st.error(str(exc))
     texts = st.session_state.get('pro_scenes', [])
     if not texts:
+        ai_video_panel([], 0)
         st.info('Nhập kịch bản rồi nhấn “Chia cảnh Pro” để bắt đầu.')
         return
     if source != st.session_state.pro_source:
         st.warning('Kịch bản hoặc thời lượng ban đầu đã thay đổi. Hãy chia lại cảnh; thao tác này thay thế các chỉnh sửa cảnh hiện tại.')
         st.session_state.pop('pro_result', None)
         return
+
+    ai_video_panel(texts, st.session_state.pro_revision)
 
     st.subheader('02 · Giọng đọc & âm thanh')
     voice_mode = st.radio('Nguồn giọng đọc', ['Không có giọng đọc', 'MP3/WAV toàn video', 'Giọng theo cảnh'], key='pro_voice_mode')
@@ -112,9 +118,17 @@ def main():
             seconds = controls[1].number_input(f'Thời lượng cảnh {i+1} (giây)', 1.0, 60.0, float(duration/len(texts)), .25, key=prefix+'_seconds')
             motion_label = controls[2].selectbox(f'Chuyển động cảnh {i+1}', list(MOTION_LABELS), index=3, key=prefix+'_motion')
             scene_text = st.text_area(f'Lời đọc / phụ đề cảnh {i+1}', text, height=90, max_chars=12000, key=prefix+'_text')
-            kind = st.radio(f'Hình ảnh cảnh {i+1}', ['Ảnh hoặc nền đồ họa', 'Clip MP4'], horizontal=True, key=prefix+'_kind')
+            kind = st.radio(f'Hình ảnh cảnh {i+1}', ['Ảnh hoặc nền đồ họa', 'Clip MP4', 'Clip từ GPU worker'], horizontal=True, key=prefix+'_kind')
             image_data, video_data, voice_data = None, None, None
-            if kind == 'Clip MP4':
+            if kind == 'Clip từ GPU worker':
+                clip = st.session_state.get('ai_timeline_clips', {}).get(f'{revision}:{i}')
+                if clip:
+                    video_data = clip['data']
+                    st.caption('MP4 từ worker · tác vụ '+clip['job_id'])
+                else:
+                    st.warning('Cảnh chưa nhận clip GPU hợp lệ. Tải kết quả và đưa vào cảnh từ AI Video Generator; không dùng ảnh thay thế.')
+                    valid = False
+            elif kind == 'Clip MP4':
                 uploaded = st.file_uploader(f'Clip cảnh {i+1} · tối đa 25 MB', type=['mp4'], key=prefix+'_video')
                 if uploaded:
                     video_data = uploaded.getvalue()
@@ -122,6 +136,9 @@ def main():
                     st.warning('Hãy tải MP4 cho cảnh này.')
                     valid = False
             else:
+                if clip_only:
+                    st.warning('Chế độ phim không xuất ảnh/nền đồ họa. Cần MP4 từ worker hoặc clip tải lên cho cảnh này.')
+                    valid = False
                 uploaded = st.file_uploader(f'Ảnh cảnh Pro {i+1} · tối đa 15 MB', type=['png', 'jpg', 'jpeg', 'webp'], key=prefix+'_image')
                 image_data = uploaded.getvalue() if uploaded else None
                 try:
