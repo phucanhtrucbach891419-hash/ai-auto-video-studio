@@ -13,6 +13,13 @@ h1 {letter-spacing:-1.5px;}
 .stButton>button {border-radius:12px;min-height:44px;}
 [data-testid="stMetric"] {background:#191D2E;padding:18px;border-radius:16px;}
 </style>""", unsafe_allow_html=True)
+with st.sidebar:
+    editor = st.selectbox("Bộ dựng video", ["Bản cơ bản", "Pro · Giai đoạn A"], key="studio_editor")
+if editor == "Pro · Giai đoạn A":
+    from studio_pro.ui import main
+    main()
+    st.stop()
+
 st.caption("🎬 XƯỞNG VIDEO • PHIÊN BẢN ĐẦU TIÊN")
 st.title("Biến ý tưởng thành video")
 st.write("Lên kịch bản, thêm hình ảnh và giọng đọc — xuất video của bạn trong một không gian.")
