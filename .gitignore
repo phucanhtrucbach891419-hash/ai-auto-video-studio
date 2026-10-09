@@ -3,3 +3,7 @@ __pycache__/
 .venv/
 work/
 .streamlit/secrets.toml
+.env
+.env.*
+!.env.example
+projects/
