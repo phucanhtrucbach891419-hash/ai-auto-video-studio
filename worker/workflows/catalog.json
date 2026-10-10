@@ -1,0 +1,86 @@
+[
+  {
+    "id": "wan21-t2v",
+    "label": "Wan 2.1 · 1.3B Text-to-video · cần GPU ngoài",
+    "mode": "t2v",
+    "workflow": "wan21-t2v.api.json",
+    "bindings": {
+      "prompt": [
+        "4",
+        "text"
+      ],
+      "seed": [
+        "8",
+        "seed"
+      ],
+      "width": [
+        "7",
+        "width"
+      ],
+      "height": [
+        "7",
+        "height"
+      ],
+      "frames": [
+        "7",
+        "length"
+      ],
+      "fps": [
+        "10",
+        "fps"
+      ],
+      "prefix": [
+        "11",
+        "filename_prefix"
+      ]
+    },
+    "output_node": "11",
+    "fps": 16,
+    "frame_step": 4,
+    "max_seconds": 5
+  },
+  {
+    "id": "wan21-i2v",
+    "label": "Wan 2.1 · 14B Image-to-video · cần GPU ngoài",
+    "mode": "i2v",
+    "workflow": "wan21-i2v.api.json",
+    "bindings": {
+      "prompt": [
+        "4",
+        "text"
+      ],
+      "seed": [
+        "8",
+        "seed"
+      ],
+      "width": [
+        "7",
+        "width"
+      ],
+      "height": [
+        "7",
+        "height"
+      ],
+      "frames": [
+        "7",
+        "length"
+      ],
+      "fps": [
+        "10",
+        "fps"
+      ],
+      "prefix": [
+        "11",
+        "filename_prefix"
+      ],
+      "image": [
+        "12",
+        "image"
+      ]
+    },
+    "output_node": "11",
+    "fps": 16,
+    "frame_step": 4,
+    "max_seconds": 5
+  }
+]

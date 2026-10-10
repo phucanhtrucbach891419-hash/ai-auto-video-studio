@@ -1,6 +1,6 @@
 # AI Auto Video Studio Pro
 
-Ứng dụng Python/Streamlit/FFmpeg bằng tiếng Việt. Giữ nguyên **bản cơ bản** làm mặc định và bổ sung **Pro · Giai đoạn A** từ mục “Bộ dựng video” trong sidebar. Không cần API key; không có API trả phí được kết nối hoặc tự động gọi. Edge TTS là dịch vụ mạng tùy chọn, mặc định tắt. Mẫu kịch bản, Ollama, thư viện dự án và AI tạo ảnh/video chưa hỗ trợ trong A. Xem [kế hoạch A–D](docs/PRO_PLAN.md).
+Ứng dụng Python/Streamlit/FFmpeg bằng tiếng Việt. Giữ nguyên **bản cơ bản** làm mặc định và bổ sung **Pro · Giai đoạn A** từ mục “Bộ dựng video” trong sidebar. Không cần API key; không có API trả phí được kết nối hoặc tự động gọi. Edge TTS là dịch vụ mạng tùy chọn, mặc định tắt. Mẫu kịch bản, Ollama, thư viện dự án và AI tạo ảnh chưa hỗ trợ. Bản nâng cấp bổ sung kết nối AI video qua GPU worker ngoài; chưa xác minh inference GPU thật. Xem [kế hoạch A–D](docs/PRO_PLAN.md).
 
 ## Chạy trên máy tính
 
@@ -71,7 +71,7 @@ STUDIO_RENDER_PROFILE=local streamlit run app.py
 STUDIO_RENDER_PROFILE=local STUDIO_ENABLE_4K=1 streamlit run app.py
 ```
 
-PowerShell: đặt `$env:STUDIO_RENDER_PROFILE="local"` (và `$env:STUDIO_ENABLE_4K="1"` nếu cần), rồi chạy `streamlit run app.py`. 4K tương ứng 2160×3840 / 3840×2160 / 2160×2160; mặc định bị khóa trên Cloud. **Chưa kiểm thử render 4K; đây là cấu hình chuẩn bị**, có thể vượt tài nguyên máy. Worker API/job từ xa cho AI nặng thuộc C; A chưa có hàng đợi gửi job giữa Cloud và máy cá nhân.
+PowerShell: đặt `$env:STUDIO_RENDER_PROFILE="local"` (và `$env:STUDIO_ENABLE_4K="1"` nếu cần), rồi chạy `streamlit run app.py`. 4K tương ứng 2160×3840 / 3840×2160 / 2160×2160; mặc định bị khóa trên Cloud. **Chưa kiểm thử render 4K; đây là cấu hình chuẩn bị**, có thể vượt tài nguyên máy. Bản A không có worker. Bản nâng cấp kết nối ComfyUI trên GPU ngoài theo hướng dẫn bên dưới; không chạy mô hình trên máy cấu hình thấp.
 
 ### Khóa API và chi phí
 
@@ -98,7 +98,7 @@ Kiểm thử bao gồm chia cảnh không mất từ, ảnh không hợp lệ, l
 
 Xuất H.264/AAC, 24 fps, 720×1280 / 1280×720 / 720×720. Ảnh tối đa 15 MB và 25 triệu điểm ảnh; MP3 tối đa 25 MB; nội dung tối đa 12.000 ký tự. Chỉ ghép cảnh nối tiếp, chưa có hiệu ứng chuyển cảnh hoặc phụ đề. Xử lý FFmpeg có thời gian giới hạn cho từng tác vụ và dùng 2 luồng mã hóa. Phiên bản này dành cho khối lượng nhỏ, chưa có hàng đợi hoặc giới hạn số tác vụ đồng thời giữa các người dùng.
 
-Media được gửi đến máy chủ Streamlit để xử lý. Mỗi lần xuất dùng một thư mục tạm riêng, tự xóa cả khi gặp lỗi; MP4 chỉ giữ trong bộ nhớ của phiên để xem/tải. Không ghi media vào repository hoặc gửi đến API bên ngoài. Nên chỉ tải media bạn có quyền sử dụng.
+Media được gửi đến máy chủ Streamlit để xử lý. Mỗi lần xuất dùng một thư mục tạm riêng, tự xóa cả khi gặp lỗi; MP4 chỉ giữ trong bộ nhớ của phiên để xem/tải. Bản cơ bản không ghi media vào repository hoặc gửi đến API bên ngoài. Pro chỉ gửi prompt/ảnh đến worker khi người dùng chủ động bật và gửi tác vụ; Edge TTS cũng cần kích hoạt riêng. Nên chỉ tải media bạn có quyền sử dụng.
 
 ## Kết quả kiểm thử bản cơ bản ban đầu
 
@@ -109,3 +109,17 @@ Ngày 09/10/2026: **6 kiểm thử vượt qua** trên Python 3.12.14, Streamlit
 Ngày 09/10/2026: **17/17 kiểm thử tự động đạt** (khoảng 93 giây), giữ nguyên 6 kiểm thử cơ bản. Đã kiểm tra MP4 Pro thật 30/60/90 giây, ba tỷ lệ, chuyển động, trộn âm thanh/fade, phụ đề tiếng Việt và clip 1080p. Đã thao tác trên Chromium thật để xuất, phát/xem trước và tải MP4 3 giây; dark mode đúng, không có lỗi JavaScript/Streamlit và health endpoint trả `ok`.
 
 Chi tiết, giới hạn và cách chạy lại kiểm thử trình duyệt: [PHASE_A_VALIDATION.md](docs/PHASE_A_VALIDATION.md). **Chưa xác minh Edge TTS live, render 4K hoặc triển khai Community Cloud.**
+
+## AI Video Generator — GPU worker ngoài
+
+Trong Pro, mở **AI Video Generator** để kết nối ComfyUI tự host qua HTTPS + token do chủ worker cấp. Mặc định tắt; không có endpoint thì báo **chưa kết nối**, không giả lập phim AI bằng ảnh chuyển động. Không cài PyTorch/CUDA/model lên Streamlit Cloud hoặc máy GTX 750 Ti 2 GB/RAM 8 GB.
+
+- Text-to-video và image-to-video dùng workflow API tin cậy do chủ worker cấu hình. Có hai profile Wan 2.1 mẫu **chưa chạy GPU**, hỗ trợ thêm workflow LTX qua catalog.
+- Nhập hành động, nhân vật, bối cảnh, camera, thời lượng và seed cho từng cảnh. I2V yêu cầu ảnh thật. Kiểm tra kết nối/node/model trước gửi và đồng ý từng tác vụ.
+- Theo dõi queue/history, lỗi, hết thời gian; không tự gửi lại khi phản hồi không rõ, không hủy toàn bộ queue. Tải MP4 được kiểm tra FFprobe, xem và đưa vào đúng cảnh với thời lượng nguồn.
+- Chọn **Chế độ phim: tất cả cảnh phải là clip MP4** để chặn xuất khi còn cảnh ảnh. Chế độ A vẫn hoạt động mặc định.
+- Job/clip hiện lưu trong phiên, chưa phải thư viện dự án bền vững. Tải MP4 và ghi job ID trước khi đóng phiên. Animated titles, kinetic typography và phụ đề động mới ở bước thiết kế, chưa triển khai.
+
+Phần mềm mã nguồn mở miễn phí không bảo đảm GPU luôn miễn phí. Có thể dùng máy GPU ngoài được cấp quyền; Colab miễn phí chỉ đề xuất notebook tương tác xuất/tải clip thủ công, không chạy worker nền qua tunnel. Không tự thuê GPU hay gọi API trả phí.
+
+Xem [hướng dẫn worker, Secrets, Wan/LTX và giới hạn dịch vụ miễn phí](worker/README.md), [kế hoạch kiến trúc/dựng phim](docs/AI_VIDEO_PLAN.md) và [kết quả kiểm thử](docs/AI_VIDEO_VALIDATION.md). **Chưa kiểm thử với GPU worker thực tế hoặc triển khai Streamlit Community Cloud; không tuyên bố đã tạo được phim AI chuyển động thật.**

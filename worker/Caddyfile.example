@@ -1,0 +1,14 @@
+# On the external GPU host only. Set WORKER_DOMAIN and STUDIO_WORKER_TOKEN
+# in the service environment; never commit the token or expose port 8188 publicly.
+{$WORKER_DOMAIN} {
+    @authorized_api {
+        header Authorization "Bearer {$STUDIO_WORKER_TOKEN}"
+        path /system_stats /object_info /prompt /queue /history/* /upload/image /view
+    }
+    handle @authorized_api {
+        reverse_proxy 127.0.0.1:8188
+    }
+    handle {
+        respond "Unauthorized" 401
+    }
+}
